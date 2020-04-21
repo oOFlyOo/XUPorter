@@ -1,8 +1,4 @@
-using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
-
-namespace UnityEditor.XCodeEditor
+﻿namespace UnityEditor.XCodeEditor
 {
 	public class PBXGroup : PBXObject
 	{

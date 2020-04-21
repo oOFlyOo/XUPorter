@@ -1,5 +1,4 @@
-using UnityEngine;
-using UnityEditor;
+﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -334,9 +333,14 @@ namespace UnityEditor.XCodeEditor
 			return _objects[guid];
 		}
 		
-		public PBXDictionary AddFile( string filePath, PBXGroup parent = null, string tree = "SOURCE_ROOT", bool createBuildFiles = true, bool weak = false )
+		public PBXDictionary AddFile( string filePath, PBXGroup parent = null, string tree = "SOURCE_ROOT", bool createBuildFiles = true, bool weak = false,
+            string compilerFlags = null)
 		{
 			//Debug.Log("AddFile " + filePath + ", " + parent + ", " + tree + ", " + (createBuildFiles? "TRUE":"FALSE") + ", " + (weak? "TRUE":"FALSE") ); 
+
+            if (!XCFileChecker.CheckAddFile (filePath)) {
+				return null;
+			}
 			
 			PBXDictionary results = new PBXDictionary();
 			if (filePath == null) {
@@ -380,7 +384,7 @@ namespace UnityEditor.XCodeEditor
 				return null;
 			}
 			
-			fileReference = new PBXFileReference( filePath, (TreeEnum)System.Enum.Parse( typeof(TreeEnum), tree ) );
+			fileReference = new PBXFileReference( filePath, compilerFlags, (TreeEnum)System.Enum.Parse( typeof(TreeEnum), tree ) );
 			parent.AddChild( fileReference );
 			fileReferences.Add( fileReference );
 			results.Add( fileReference.guid, fileReference );
@@ -550,7 +554,8 @@ namespace UnityEditor.XCodeEditor
 			currentObject.Value.AddBuildFile( buildFile );
 		}
 		
-		public bool AddFolder( string folderPath, PBXGroup parent = null, string[] exclude = null, bool recursive = true, bool createBuildFile = true )
+		public bool AddFolder( string folderPath, PBXGroup parent = null, string[] exclude = null, bool recursive = true, bool createBuildFile = true,
+            string compileFlags = null)
 		{
 			Debug.Log("Folder PATH: "+folderPath);
 			if( !Directory.Exists( folderPath ) ){
@@ -591,7 +596,7 @@ namespace UnityEditor.XCodeEditor
 				
 				if( recursive ) {
 					Debug.Log( "recursive" );
-					AddFolder( directory, newGroup, exclude, recursive, createBuildFile );
+					AddFolder( directory, newGroup, exclude, recursive, createBuildFile, compileFlags);
 				}
 			}
 			
@@ -602,7 +607,7 @@ namespace UnityEditor.XCodeEditor
 					continue;
 				}
 				Debug.Log("Adding Files for Folder");
-				AddFile( file, newGroup, "SOURCE_ROOT", createBuildFile );
+				AddFile( file, newGroup, "SOURCE_ROOT", createBuildFile, false, compileFlags);
 			}
 			
 			modified = true;
@@ -713,24 +718,53 @@ namespace UnityEditor.XCodeEditor
 			Debug.Log( "Adding libraries..." );
 			
 			foreach( XCModFile libRef in mod.libs ) {
-				string completeLibPath = System.IO.Path.Combine( "usr/lib", libRef.filePath );
+				string completeLibPath = "";
+				string root = "";
+				//modify for xcode7
+				if (libRef.filePath.Contains(".dylib"))
+				{
+					completeLibPath = System.IO.Path.Combine( "/usr/lib", libRef.filePath );
+					root = "SOURCE_ROOT";
+
+				}
+				else if (libRef.filePath.Contains(".tbd"))
+				{
+					completeLibPath = System.IO.Path.Combine( "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/usr/lib", libRef.filePath );
+					root = "SOURCE_ROOT";
+					
+				}
+				else
+				{
+					completeLibPath = System.IO.Path.Combine( "usr/lib", libRef.filePath );
+					root = "SDKROOT";
+				}
 				Debug.Log ("Adding library " + completeLibPath);
-				this.AddFile( completeLibPath, modGroup, "SDKROOT", true, libRef.isWeak );
+				this.AddFile( completeLibPath, modGroup, root, true, libRef.isWeak );
 			}
 			
 			Debug.Log( "Adding frameworks..." );
 			PBXGroup frameworkGroup = this.GetGroup( "Frameworks" );
 			foreach( string framework in mod.frameworks ) {
 				string[] filename = framework.Split( ':' );
-				bool isWeak = ( filename.Length > 1 ) ? true : false;
+				bool isWeak = ( filename.Length > 1 );
 				string completePath = System.IO.Path.Combine( "System/Library/Frameworks", filename[0] );
 				this.AddFile( completePath, frameworkGroup, "SDKROOT", true, isWeak );
 			}
 
 			Debug.Log( "Adding files..." );
 			foreach( string filePath in mod.files ) {
-				string absoluteFilePath = System.IO.Path.Combine( mod.path, filePath );
-				this.AddFile( absoluteFilePath, modGroup );
+                var cfLastIndex = filePath.LastIndexOf(":");
+                string compilerFlags = null;
+			    var fPath = filePath;
+                if (cfLastIndex > 0)
+                {
+                    compilerFlags = fPath.Substring(cfLastIndex + 1, fPath.Length - cfLastIndex - 1);
+                    fPath = fPath.Substring(0, cfLastIndex);
+                }
+
+                string absoluteFilePath = System.IO.Path.Combine( mod.path, fPath);
+				this.AddFile( absoluteFilePath, modGroup, "SOURCE_ROOT", true, false,
+                                compilerFlags);
 			}
 
 			Debug.Log( "Adding embed binaries..." );
@@ -748,14 +782,25 @@ namespace UnityEditor.XCodeEditor
 			
 			Debug.Log( "Adding folders..." );
 			foreach( string folderPath in mod.folders ) {
-				string absoluteFolderPath = System.IO.Path.Combine( Application.dataPath, folderPath );
+                var cfLastIndex = folderPath.LastIndexOf(":");
+                string compilerFlags = null;
+                string fPath = folderPath;
+                if (cfLastIndex > 0)
+                {
+                    compilerFlags = fPath.Substring(cfLastIndex + 1, fPath.Length - cfLastIndex - 1);
+                    fPath = fPath.Substring(0, cfLastIndex);
+                }
+
+                string absoluteFolderPath = System.IO.Path.Combine( mod.path, fPath);
 				Debug.Log ("Adding folder " + absoluteFolderPath);
-				this.AddFolder( absoluteFolderPath, modGroup, (string[])mod.excludes.ToArray( typeof(string) ) );
+
+				this.AddFolder( absoluteFolderPath, modGroup, (string[])mod.excludes.ToArray( typeof(string) ) ,
+                    true, true, compilerFlags);
 			}
 			
 			Debug.Log( "Adding headerpaths..." );
 			foreach( string headerpath in mod.headerpaths ) {
-				if (headerpath.Contains("$(inherited)")) {
+				if (headerpath.Contains("$")) { //old version is "$(inherited)"
 					Debug.Log ("not prepending a path to " + headerpath);
 					this.AddHeaderSearchPaths( headerpath );
 				} else {

@@ -1,7 +1,6 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 
 namespace UnityEditor.XCodeEditor 
 {
@@ -23,6 +22,9 @@ namespace UnityEditor.XCodeEditor
 		const string PlistName = "name";
 		const string PlistSchemes = "schemes";
 
+		// LSApplicationQueriesSchemes
+		const string LSApplicationQueriesSchemes = "LSApplicationQueriesSchemes";
+
 		public XCPlist(string plistPath)
 		{
 			this.plistPath = plistPath;
@@ -30,6 +32,11 @@ namespace UnityEditor.XCodeEditor
 
 		public void Process(Hashtable plist)
 		{
+			if (plist == null)
+			{
+				return;
+			}
+
 			Dictionary<string, object> dict = (Dictionary<string, object>)PlistCS.Plist.readPlist(plistPath);
 			foreach( DictionaryEntry entry in plist)
 			{
@@ -54,13 +61,22 @@ namespace UnityEditor.XCodeEditor
 		{
 			Debug.Log ("AddPlistItems: key=" + key);
 			
-			if (key.CompareTo(PlistUrlType) == 0)
-			{
-				processUrlTypes((ArrayList)value, dict);
+			if (key.CompareTo (PlistUrlType) == 0) {
+				processUrlTypes ((ArrayList)value, dict);
+			} else if (key.CompareTo (LSApplicationQueriesSchemes) == 0) {
+				processLSApplicationQueriesSchemes((ArrayList)value, dict);
 			}
 			else
 			{
-				dict[key] = HashtableToDictionary<string, object>((Hashtable)value);
+				if (!(value is Hashtable))
+				{
+					dict[key] = value;
+				}
+				else
+				{
+					dict[key] = HashtableToDictionary<string, object>((Hashtable)value);
+				}
+
 				plistModified = true;
 			}
 		}
@@ -127,6 +143,65 @@ namespace UnityEditor.XCodeEditor
 				}
 			}
 			return null;
+		}
+
+
+		private void processLSApplicationQueriesSchemes(ArrayList schemes, Dictionary<string, object> dict)
+		{
+			List<object> bundleScemes;
+			if (dict.ContainsKey(LSApplicationQueriesSchemes))
+			{
+				bundleScemes = (List<object>)dict[LSApplicationQueriesSchemes];
+			}
+			else
+			{
+				bundleScemes = new List<object>();
+			}
+
+			foreach (string s in schemes) {
+				if (!bundleScemes.Contains(s))
+				{
+					bundleScemes.Add (s);
+				}
+			}
+
+			plistModified = true;
+			dict [LSApplicationQueriesSchemes] = bundleScemes;
+			
+//			foreach(Hashtable table in urltypes)
+//			{
+//				string role = (string)table[PlistRole];
+//				if (string.IsNullOrEmpty(role))
+//				{
+//					role = PlistEditor;
+//				}
+//				string name = (string)table[PlistName];
+//				ArrayList shcemes = (ArrayList)table[PlistSchemes];
+//				
+//				// new schemes
+//				List<object> urlTypeSchemes = new List<object>();
+//				foreach(string s in shcemes)
+//				{
+//					urlTypeSchemes.Add(s);
+//				}
+//				
+//				Dictionary<string, object> urlTypeDict = this.findUrlTypeByName(bundleScemes, name);
+//				if (urlTypeDict == null)
+//				{
+//					urlTypeDict = new Dictionary<string, object>();
+//					urlTypeDict[BundleTypeRole] = role;
+//					urlTypeDict[BundleUrlName] = name;
+//					urlTypeDict[BundleUrlSchemes] = urlTypeSchemes;
+//					bundleScemes.Add(urlTypeDict);
+//				}
+//				else
+//				{
+//					urlTypeDict[BundleTypeRole] = role;
+//					urlTypeDict[BundleUrlSchemes] = urlTypeSchemes;
+//				}
+//				plistModified = true;
+//			}
+//			dict[BundleUrlTypes] = bundleScemes;
 		}
 	}
 }

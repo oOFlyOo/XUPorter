@@ -1,4 +1,4 @@
-//
+﻿//
 //   PlistCS Property List (plist) serialization and parsing library.
 //
 //   https://github.com/animetrics/PlistCS
@@ -28,6 +28,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml;
 
@@ -298,7 +299,7 @@ namespace PlistCS
             return array;
         }
 
-        private static void composeArray(List<object> value, XmlWriter writer)
+        private static void composeArray(IList value, XmlWriter writer)
         {
             writer.WriteStartElement("array");
             foreach (object obj in value)
@@ -366,13 +367,13 @@ namespace PlistCS
                 }
                 writeDictionaryValues(dic, writer);
             }
-            else if (value is List<object>)
-            {
-                composeArray((List<object>)value, writer);
-            }
             else if (value is byte[])
             {
                 writer.WriteElementString("data", Convert.ToBase64String((Byte[])value));
+            }
+            else if (value is IList)
+            {
+                composeArray((IList) value, writer);
             }
             else if (value is float || value is double)
             {
@@ -390,7 +391,7 @@ namespace PlistCS
             }
             else
             {
-                throw new Exception(String.Format("Value type '{0}' is unhandled", value.GetType().ToString()));
+                throw new Exception(string.Format("Value type '{0}' is unhandled", value.GetType()));
             }
         }
 

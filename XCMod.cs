@@ -1,3 +1,4 @@
+﻿using System;
 using UnityEngine;
 using System.Collections;
 using System.IO;
@@ -92,7 +93,23 @@ namespace UnityEditor.XCodeEditor
 				return (Hashtable)_datastore["plist"];
 			}
 		}
-		
+
+		public iOSTargetOSVersion IOSTargetOSVersion
+		{
+			get
+			{
+				if (_datastore.ContainsKey("IOSTargetOSVersion") && !string.IsNullOrEmpty(_datastore["IOSTargetOSVersion"].ToString()))
+				{
+					return (iOSTargetOSVersion) Convert.ToInt32(_datastore["IOSTargetOSVersion"]);
+				}
+				else
+				{
+					// 默认使用6
+					return iOSTargetOSVersion.iOS_6_0;
+				}
+			}
+		}
+
 		public XCMod( string filename )
 		{	
 			FileInfo projectFileInfo = new FileInfo( filename );
@@ -102,9 +119,12 @@ namespace UnityEditor.XCodeEditor
 			
 			name = System.IO.Path.GetFileNameWithoutExtension( filename );
 			path = System.IO.Path.GetDirectoryName( filename );
-			
-			string contents = projectFileInfo.OpenText().ReadToEnd();
-			Debug.Log (contents);
+
+			var sr = projectFileInfo.OpenText();
+			string contents = sr.ReadToEnd();
+			sr.Dispose();
+
+//			Debug.Log (contents);
 			_datastore = (Hashtable)XUPorterJSON.MiniJSON.jsonDecode( contents );
 			if (_datastore == null || _datastore.Count == 0) {
 				Debug.Log (contents);

@@ -1,5 +1,4 @@
-using UnityEngine;
-using System.Collections;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 namespace UnityEditor.XCodeEditor
@@ -46,8 +45,8 @@ namespace UnityEditor.XCodeEditor
 			{ ".xib", "file.xib" },
 			{ ".strings", "text.plist.strings" },
 			{ ".bundle", "wrapper.plug-in" },
-			{ ".dylib", "compiled.mach-o.dylib" },
-			{ ".tbd", "sourcecode.text-based-dylib-definition" },
+			{ ".dylib", "compiled.mach-o.dylib" },	
+			{ ".tbd", "sourcecode.text-based-dylib-definition" },	
 			{ ".json", "text.json" }
    		 };
 		
@@ -75,7 +74,7 @@ namespace UnityEditor.XCodeEditor
 			{ ".strings", "PBXResourcesBuildPhase" },
 			{ ".bundle", "PBXResourcesBuildPhase" },
 			{ ".dylib", "PBXFrameworksBuildPhase" },
-			{ ".tbd", "PBXFrameworksBuildPhase" }
+			{ ".tbd", "PBXFrameworksBuildPhase" },
     	};
 		
 		public PBXFileReference( string guid, PBXDictionary dictionary ) : base( guid, dictionary )
@@ -91,6 +90,11 @@ namespace UnityEditor.XCodeEditor
 			this.Add( SOURCETREE_KEY, (string)( System.IO.Path.IsPathRooted( filePath ) ? trees[TreeEnum.ABSOLUTE] : trees[tree] ) );
 			this.GuessFileType();
 		}
+
+	    public PBXFileReference(string filePath, string compilerFlags, TreeEnum tree = TreeEnum.SOURCE_ROOT):this(filePath, tree)
+	    {
+	        this.compilerFlags = compilerFlags;
+	    }
 		
 		public string name {
 			get {
